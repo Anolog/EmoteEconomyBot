@@ -16,14 +16,25 @@ namespace EmotePrototypev1
     internal class ChatBot
     {
         readonly ConnectionCredentials m_Credentials = new ConnectionCredentials(TwitchInfo.BotUsername, TwitchInfo.BotToken);
+        string m_BotChannel = "monkascountbot";
 
-        List<TwitchClient> m_ClientList = new List<TwitchClient>();
+        //Index with the string being the username for the twitch client.
+        Dictionary<string, TwitchClient> m_ClientList = new Dictionary<string, TwitchClient>();
+
+        //Index is emote name
+        Dictionary<string, EmoteInfo> m_EmoteInfo = new Dictionary<string, EmoteInfo>();
+        //Get a list of keys
+        List<string> m_EmoteNamesInDB = new List<string>();
 
         Database m_Database;
 
         public ChatBot(Database aDatabase)
         {
             m_Database = aDatabase;
+
+            //Probably should actually use the tuple instead of calling this twice...
+            m_EmoteNamesInDB = m_Database.GetEmoteInfo().Item1;
+            m_EmoteInfo = m_Database.GetEmoteInfo().Item2;
         }
 
         public void Initialize()
@@ -35,7 +46,7 @@ namespace EmotePrototypev1
             {
                 TwitchClient twitchClient = CreateClient(name);
 
-                m_ClientList.Add(twitchClient);
+                m_ClientList.Add(name, twitchClient);
             }
 
         }
@@ -73,13 +84,14 @@ namespace EmotePrototypev1
 
         private void Client_OnMessageRecieved(object sender, OnMessageReceivedArgs e)
         {
-            m_ClientList[0].SendMessage("monkascountbot", m_ClientList[0].TwitchUsername);
+            //m_ClientList[0].SendMessage("monkascountbot", m_ClientList[0].TwitchUsername);
 
+            string[] chatMessage = e.ChatMessage.Message.Split(' ', '\t');
 
             //If the client that the message recieved is the main bot
-            if (e.ChatMessage.Channel == "monkascountbot")
+            if (e.ChatMessage.Channel == m_BotChannel)
             {
-                if (e.ChatMessage.Message == "!Enable")
+                if (e.ChatMessage.Message.StartsWith("!Enable"))
                 {
                     //Check if they are in the DB or not
                     Console.WriteLine("Checking if in DB");
@@ -98,8 +110,7 @@ namespace EmotePrototypev1
                             Console.WriteLine(e.ChatMessage.Username + " is in the DB chatinfo");
                             Console.WriteLine(e.ChatMessage.Username + " is in both of the DB's");
 
-                            //THE BOT SHOULD ALWAYS BE 0
-                            m_ClientList[0].SendMessage("monkasbotcount", e.ChatMessage.Username + " is already active!");
+                            m_ClientList[e.ChatMessage.Channel].SendMessage(m_BotChannel, e.ChatMessage.Username + " is already active!");
 
                             return;
                         }
@@ -112,7 +123,7 @@ namespace EmotePrototypev1
 
                             m_Database.InsertUserToChatDB(e.ChatMessage.Username, id);
 
-                            m_ClientList[0].SendMessage("monkasbotcount", e.ChatMessage.Username + " is now active!");
+                            m_ClientList[e.ChatMessage.Channel].SendMessage(m_BotChannel, e.ChatMessage.Username + " is now active!");
 
                         }
                     }
@@ -131,31 +142,32 @@ namespace EmotePrototypev1
                         //put user into other db
                         m_Database.InsertUserToChatDB(e.ChatMessage.Username, id);
 
+                        m_ClientList[e.ChatMessage.Channel].SendMessage(m_BotChannel, e.ChatMessage.Username + " is now registered and enabled!");
+
                     }
 
                     //Add it to the current client list
-                    m_ClientList.Add(CreateClient(e.ChatMessage.Username));
+                    //Use the username that the message is recieved from and create a client with the username as well
+                    m_ClientList.Add(e.ChatMessage.Username, CreateClient(e.ChatMessage.Username));
 
                     return;
                 }
 
-                if (e.ChatMessage.Message == "!EconomyRegister")
+                if (e.ChatMessage.Message.StartsWith("!EconomyRegister"))
                 {
-                    m_Database.InsertUserToDB(e.ChatMessage.Username);
-
-                    return;
+                    RegisterCommand(e);
                 }
             }
 
             //Every other channel
             else
             {
-                if (e.ChatMessage.Message == "!EconomyRegister")
+                if (e.ChatMessage.Message.StartsWith("!EconomyRegister"))
                 {
-                    //Need to do some checks if they are already in the DB
-                    //Prbably do it in the database side of things
-                    m_Database.InsertUserToDB(e.ChatMessage.Username);
+                    RegisterCommand(e);
                 }
+
+                HandleEmotes(chatMessage);
             }
 
             return;
@@ -175,6 +187,43 @@ namespace EmotePrototypev1
         {
             //Implement something here
             return;
+        }
+
+       private void RegisterCommand(OnMessageReceivedArgs e)
+       {
+            //Check if they are in the database or not and inserts them
+            if (m_Database.InsertUserToDB_BoolCheck(e.ChatMessage.Username) == true)
+            {
+                m_ClientList[e.ChatMessage.Channel].SendMessage(m_BotChannel, e.ChatMessage.Username + " is now registered!");
+                return;
+            }
+
+            else
+            {
+                m_ClientList[e.ChatMessage.Channel].SendMessage(m_BotChannel, e.ChatMessage.Username + " is already registered!");
+                return;
+            }
+        }
+
+        private void HandleEmotes(string[] aChatMessage)
+        {
+            //split message up and pass it into here
+            //loop through words
+            //loop through emote names
+            //if it is the same, then add one to the counter
+
+            for (int i = 0; i < aChatMessage.Length; i++)
+            {
+                for (int j = 0; j < m_EmoteNamesInDB.Count; j++)
+                {
+                    if (aChatMessage[i] == m_EmoteNamesInDB[j])
+                    {
+                        Console.WriteLine("Emote detected");
+                        m_EmoteInfo[m_EmoteNamesInDB[j]].SetAmountOfEmotesSaid(
+                        m_EmoteInfo[m_EmoteNamesInDB[j]].GetAmountOFEmotesSaid() + 1);
+                    }
+                }
+            }
         }
     }
 }
