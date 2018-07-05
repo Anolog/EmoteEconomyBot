@@ -118,7 +118,7 @@ namespace EmotePrototypev1
 
         }
 
-        public Tuple<List<string>,Dictionary<string, EmoteInfo>> GetEmoteInfo()
+        public Tuple<List<string>, Dictionary<string, EmoteInfo>> GetEmoteInfo()
         {
             string query = "SELECT * FROM emoteinfo";
             Dictionary<string, EmoteInfo> emoteInfo = new Dictionary<string, EmoteInfo>();
@@ -140,7 +140,8 @@ namespace EmotePrototypev1
             //Take it and put it into an emoteinfo format and add to the dictionary
             foreach (DataRow dataRow in dataTable.Rows)
             {
-                EmoteInfo eData = new EmoteInfo((int)dataRow[0], (string)dataRow[1], (float)dataRow[2], (float)dataRow[3], (float)dataRow[4], (float)dataRow[5], (float)dataRow[6], (float)dataRow[7]);
+                EmoteInfo eData = new EmoteInfo(Convert.ToInt32(dataRow[0]), Convert.ToString(dataRow[1]), Convert.ToSingle(dataRow[2]), Convert.ToSingle(dataRow[3]), 
+                                                Convert.ToSingle(dataRow[4]), Convert.ToSingle(dataRow[5]), Convert.ToSingle(dataRow[6]), Convert.ToSingle(dataRow[7]));
                 emoteInfo.Add((string)dataRow[1], eData);
 
                 emoteNames.Add((string)dataRow[1]);
@@ -187,12 +188,155 @@ namespace EmotePrototypev1
 
         }
 
-        public void AddToEmountCount(string aUsername, string aEmoteToBuy, string aEmoteToSell, int aAmountToBuy)
+        public bool TradeEmote(string aUsername, string aEmoteToSell, string aEmoteToBuy, float aAmountToBuy)
         {
             //Need to see if both emotes exist for the user
             //Then need to see if they can buy that amount
             //If they can, then it needs to update that they can buy that amount
 
+            int ID = GetUserID(aUsername);
+            string emoteBeingChecked = aEmoteToBuy;
+
+            string queryCheckIfEmoteExists = "SELECT COUNT(*) FROM emoteinfo WHERE EmoteName = '" + emoteBeingChecked + "'";
+            string queryGetAmountOfEmote = "SELECT Amount FROM emotecount WHERE EmoteName = '" + aEmoteToSell + "' AND DatabaseUserID = " + ID;
+            string queryGetPriceOfEmote = "SELECT CurrentValue FROM emoteinfo WHERE EmoteName = '" + emoteBeingChecked + "'";
+
+            MySqlCommand cmdCheckEmoteExists = new MySqlCommand(queryCheckIfEmoteExists, m_Connection);
+
+            if (m_Connection.Ping() == false)
+            {
+                m_Connection.Open();
+            }
+
+            //Check if emote to buy exists
+            int emoteExists = Convert.ToInt32(cmdCheckEmoteExists.ExecuteScalar());
+
+            if (emoteExists == 0)
+            {
+                Console.WriteLine("The emote " + emoteBeingChecked + " does not exist in the database");
+                this.CloseConnection();
+                return false;
+            }
+
+            else if (emoteExists == 1)
+            {
+                //check for other emote
+                emoteBeingChecked = aEmoteToSell;
+                //var was updated, need to update the command
+                queryGetAmountOfEmote = "SELECT Amount FROM emotecount WHERE EmoteName = '" + aEmoteToSell + "' AND DatabaseUserID = " + ID;
+                cmdCheckEmoteExists.CommandText = queryCheckIfEmoteExists;
+                emoteExists = Convert.ToInt32(cmdCheckEmoteExists.ExecuteScalar());
+
+                if (emoteExists == 0)
+                {
+                    Console.WriteLine("The emote" + emoteBeingChecked + " does not exist in the database");
+                    this.CloseConnection();
+                    return false;
+                }
+
+                else if (emoteExists == 1)
+                {
+                    Console.WriteLine("Both emotes exist in the database");
+                }
+            }
+
+            //both emotes exist
+            //Check if the user has more than 0 or more than amount they want to buy
+            MySqlCommand cmdCheckUserAmountOfEmote = new MySqlCommand(queryGetAmountOfEmote, m_Connection);
+            float userAmount = (float)cmdCheckUserAmountOfEmote.ExecuteScalar();
+
+            //If it comes back that they have none
+            if (userAmount == 0)
+            {
+                Console.WriteLine(aUsername + " does not have any amount of the emote they are trying to sell.");
+
+                this.CloseConnection();
+                return false;
+            }
+
+            else if (userAmount > 0)
+            {
+                //Get the price of both of the emotes
+                emoteBeingChecked = aEmoteToBuy;
+                queryGetPriceOfEmote = "SELECT CurrentValue FROM emoteinfo WHERE EmoteName = '" + emoteBeingChecked + "'";
+                MySqlCommand cmdGetPriceOfEmote = new MySqlCommand(queryGetPriceOfEmote, m_Connection);
+
+                float buyPrice = Convert.ToSingle(cmdGetPriceOfEmote.ExecuteScalar());
+
+                //Change command to the selling emote
+                emoteBeingChecked = aEmoteToSell;
+                queryGetAmountOfEmote = "SELECT Amount FROM emotecount WHERE EmoteName = '" + aEmoteToSell + "' AND DatabaseUserID = " + ID;
+                queryGetPriceOfEmote = "SELECT CurrentValue FROM emoteinfo WHERE EmoteName = '" + emoteBeingChecked + "'";
+
+                cmdGetPriceOfEmote.CommandText = queryGetPriceOfEmote;
+                float sellPrice = Convert.ToSingle(cmdGetPriceOfEmote.ExecuteScalar());
+
+                float tradeConversion = sellPrice / buyPrice;
+
+                //If they enter an amount that is greater than what they can buy
+                if ((userAmount * tradeConversion) < aAmountToBuy)
+                {
+                    Console.WriteLine(aUsername + " tried to buy more than they can afford");
+                    this.CloseConnection();
+                    return false;
+                }
+
+                //TODO:
+                //THIS AREA BELOW IS WHERE THE PRICE NEEDS TO BE EFFECTED. AFTER THE PURCHASE IS MADE
+                //THIS AREAD BELOW ALSO NEEDS TO ADD INFO TO THE STATS THAT ARE BEING TRACKED IN THE DATABASE
+                
+                float purchaseAmount = 0;
+
+                string queryAddToEmoteAmount = "UPDATE emotecount SET Amount = Amount + " + purchaseAmount + " WHERE DatabaseUserID = " + ID + " AND EmoteName = '" + aEmoteToBuy + "'";
+                string querySubToEmoteAmount = "UPDATE emotecount SET Amount = " + userAmount + " WHERE DatabaseUserID = " + ID + " AND EmoteName = '" + aEmoteToSell + "'";
+
+                MySqlCommand cmdAddEmote = new MySqlCommand(queryAddToEmoteAmount, m_Connection);
+                MySqlCommand cmdSubEmote = new MySqlCommand(querySubToEmoteAmount, m_Connection);
+
+                //purchase amount is how much is being bought
+                //Change the useramount based on that
+                //Then, add the purchase amount to the index of the emote they are buying
+
+
+                //-1 is a special code for spending all
+                if (aAmountToBuy == -1)
+                {
+                    purchaseAmount = userAmount / tradeConversion;
+                    userAmount = 0;
+
+                    aAmountToBuy = userAmount * tradeConversion;
+
+                    //update text
+                    queryAddToEmoteAmount = "UPDATE emotecount SET Amount = Amount + " + aAmountToBuy + " WHERE DatabaseUserID = " + ID + " AND EmoteName = '" + aEmoteToBuy + "'";
+                    querySubToEmoteAmount = "UPDATE emotecount SET Amount = " + userAmount + " WHERE DatabaseUserID = " + ID + " AND EmoteName = '" + aEmoteToSell + "'";
+
+                    cmdAddEmote.CommandText = queryAddToEmoteAmount;
+                    cmdSubEmote.CommandText = querySubToEmoteAmount;
+
+                    cmdAddEmote.ExecuteNonQuery();
+                    cmdSubEmote.ExecuteNonQuery();
+                }
+
+                if ((userAmount * tradeConversion) >= aAmountToBuy)
+                {
+                    purchaseAmount = aAmountToBuy / tradeConversion;
+                    userAmount -= purchaseAmount;
+
+                    //update text
+                    queryAddToEmoteAmount = "UPDATE emotecount SET Amount = Amount + " + aAmountToBuy + " WHERE DatabaseUserID = " + ID + " AND EmoteName = '" + aEmoteToBuy + "'";
+                    querySubToEmoteAmount = "UPDATE emotecount SET Amount = " + userAmount + " WHERE DatabaseUserID = " + ID + " AND EmoteName = '" + aEmoteToSell + "'";
+
+                    cmdAddEmote.CommandText = queryAddToEmoteAmount;
+                    cmdSubEmote.CommandText = querySubToEmoteAmount;
+
+                    cmdAddEmote.ExecuteNonQuery();
+                    cmdSubEmote.ExecuteNonQuery();
+                }
+
+            }
+
+            this.CloseConnection();
+            return true;
         }
 
         //More or less just for testing purposes, but this can be used for something maybe...
@@ -216,7 +360,7 @@ namespace EmotePrototypev1
 
             //Check if user is in
             int userCount = (int)cmdUserCheck.ExecuteScalar();
-           
+
             //User isn't in db
             if (userCount == 0)
             {
@@ -227,7 +371,7 @@ namespace EmotePrototypev1
                     Console.WriteLine("Error inserting new entry for user emote amount, Database.cs -> AddToEmoteCount");
                 }
             }
-            
+
             //User is in db
             else
             {
@@ -271,6 +415,39 @@ namespace EmotePrototypev1
                     Console.WriteLine("Error inserting a new user");
                 }
 
+                //Now create a user emote list in the emotecount
+                int ID = GetUserID(aUsername);
+
+                string queryEmotes = "SELECT EmoteName FROM emoteinfo";
+
+                MySqlCommand cmdEmoteList = new MySqlCommand(queryEmotes, m_Connection);
+                List<string> listOfEmotes = new List<string>();
+
+                if (m_Connection.Ping() == false)
+                {
+                    m_Connection.Open();
+                }
+
+                MySqlDataReader reader;
+                reader = cmdEmoteList.ExecuteReader();
+
+                while (reader.Read())
+                {
+                    listOfEmotes.Add(reader.GetString(0));
+                }
+
+                reader.Close();
+
+                //Create the emotes for the users
+                int j;
+
+                for (j = 0; j < listOfEmotes.Count; j++)
+                {
+                    string queryInsertValues = "INSERT INTO emotecount VALUES ('" + listOfEmotes[j] + "', " + ID + ", 0)";
+                    MySqlCommand cmdInsert = new MySqlCommand(queryInsertValues, m_Connection);
+                    cmdInsert.ExecuteNonQuery();
+                }
+
                 this.CloseConnection();
             }
         }
@@ -302,6 +479,39 @@ namespace EmotePrototypev1
                 if (result < 0)
                 {
                     Console.WriteLine("Error inserting a new user");
+                }
+
+                //Now create a user emote list in the emotecount
+                int ID = GetUserID(aUsername);
+
+                string queryEmotes = "SELECT EmoteName FROM emoteinfo";
+
+                MySqlCommand cmdEmoteList = new MySqlCommand(queryEmotes, m_Connection);
+                List<string> listOfEmotes = new List<string>();
+
+                if (m_Connection.Ping() == false)
+                {
+                    m_Connection.Open();
+                }
+
+                MySqlDataReader reader;
+                reader = cmdEmoteList.ExecuteReader();
+
+                while (reader.Read())
+                {
+                    listOfEmotes.Add(reader.GetString(0));
+                }
+
+                reader.Close();
+
+                //Create the emotes for the users
+                int j;
+
+                for (j = 0; j < listOfEmotes.Count; j++)
+                {
+                    string queryInsertValues = "INSERT INTO emotecount VALUES ('" + listOfEmotes[j] + "', " + ID + ", 0)";
+                    MySqlCommand cmdInsert = new MySqlCommand(queryInsertValues, m_Connection);
+                    cmdInsert.ExecuteNonQuery();
                 }
 
                 this.CloseConnection();
@@ -362,7 +572,7 @@ namespace EmotePrototypev1
                 return false;
             }
 
-            }
+        }
 
         public List<string> SelectChannelsToBeIn()
         {
@@ -379,7 +589,7 @@ namespace EmotePrototypev1
 
             dataReader = cmd.ExecuteReader();
 
-            while(dataReader.Read())
+            while (dataReader.Read())
             {
                 string username = dataReader.GetString(0);
                 channelsToReturn.Add(username);

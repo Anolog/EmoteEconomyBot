@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Diagnostics;
 using TwitchLib;
 using TwitchLib.Client;
 using TwitchLib.Client.Extensions;
@@ -15,8 +16,13 @@ namespace EmotePrototypev1
 {
     internal class ChatBot
     {
+        public Stopwatch m_Timer = Stopwatch.StartNew();
+
         readonly ConnectionCredentials m_Credentials = new ConnectionCredentials(TwitchInfo.BotUsername, TwitchInfo.BotToken);
         string m_BotChannel = "monkascountbot";
+
+        //Used for emote tracking
+        public const float AMOUNT_OF_TIME_SECONDS = 60.0f;
 
         //Index with the string being the username for the twitch client.
         Dictionary<string, TwitchClient> m_ClientList = new Dictionary<string, TwitchClient>();
@@ -27,6 +33,7 @@ namespace EmotePrototypev1
         List<string> m_EmoteNamesInDB = new List<string>();
 
         Database m_Database;
+
 
         public ChatBot(Database aDatabase)
         {
@@ -165,6 +172,24 @@ namespace EmotePrototypev1
                 if (e.ChatMessage.Message.StartsWith("!EconomyRegister"))
                 {
                     RegisterCommand(e);
+                }
+
+                //CHAT MESSAGE FOR TRADING
+                // 0             1      2   3      4
+                // !EconomyTrade Emote1 for Emote2 amount
+                //TODO:
+                //FIX THIS TO MAKE SURE THAT IT HAS TO BE X LENGTH MINIMUM AND THAT THE WORD IS ACTULLY THE CORRECT WORD
+                if (e.ChatMessage.Message.StartsWith("!EconomyTrade") && chatMessage.Length >= 5)
+                {
+                    bool transaciton = m_Database.TradeEmote(e.ChatMessage.Username, chatMessage[1], chatMessage[3], Convert.ToInt32(chatMessage[4]));
+
+                    //Determine if fail or sucess
+                    if (transaciton == true)
+                    {
+                        m_ClientList[e.ChatMessage.Channel].SendMessage(e.ChatMessage.Channel, e.ChatMessage.Username + ", your transaction was sucessful!");
+                    }
+
+                    return;
                 }
 
                 HandleEmotes(chatMessage);

@@ -18,7 +18,7 @@ namespace EmotePrototypev1
         private float m_AmountSold;
         private float m_Average;
 
-        public const float AMOUNT_OF_TIME_SECONDS = 60.0f;
+        //public const float AMOUNT_OF_TIME_SECONDS = 60.0f;
         //This is the amount of emotes said between the the AMOUNT_OF_TIME_SECONDS
         private int m_AmountOfEmotesSaid;
 

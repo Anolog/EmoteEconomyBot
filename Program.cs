@@ -9,13 +9,13 @@ using TwitchLib.Client.Models;
 using TwitchLib.Client.Events;
 using TwitchLib.Api.Models.v5.Users;
 
-
 namespace EmotePrototypev1
 {
     class Program
-    {        
+    {
         static void Main(string[] args)
         {
+
             Database m_Database = new Database();
             DataTable m_EmoteData = new DataTable();
 
