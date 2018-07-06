@@ -654,5 +654,22 @@ namespace EmotePrototypev1
             return count;
         }
 
+        public void RecordHistory(EmoteInfo aEmoteInfo)
+        {
+            string query = "INSERT INTO emoterecords VALUES (" + aEmoteInfo.GetID() + ", '" + aEmoteInfo.GetName() + "', " + aEmoteInfo.GetValue() + ", " + aEmoteInfo.GetAverage() + ")";
+
+            MySqlCommand cmd = new MySqlCommand(query, m_Connection);
+
+            if (m_Connection.Ping() == false)
+            {
+                m_Connection.Open();
+            }
+
+            cmd.ExecuteNonQuery();
+
+            this.CloseConnection();
+            return;
+        }
+
     }
 }

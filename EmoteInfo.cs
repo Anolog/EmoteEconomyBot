@@ -17,8 +17,9 @@ namespace EmotePrototypev1
         private float m_AmountBought;
         private float m_AmountSold;
         private float m_Average;
+        private float m_OldAverage;
 
-        //public const float AMOUNT_OF_TIME_SECONDS = 60.0f;
+        public const float AMOUNT_OF_TIME_SECONDS = 30;
         //This is the amount of emotes said between the the AMOUNT_OF_TIME_SECONDS
         private int m_AmountOfEmotesSaid;
 
@@ -44,6 +45,21 @@ namespace EmotePrototypev1
             return m_EmoteName;
         }
 
+        public int GetID()
+        {
+            return m_ID;
+        }
+
+        public float GetValue()
+        {
+            return m_CurrentValue;
+        }
+
+        public float GetAverage()
+        {
+            return m_Average;
+        }
+
         public void SetAmountOfEmotesSaid(int aAmount)
         {
             m_AmountOfEmotesSaid = aAmount;
@@ -54,6 +70,24 @@ namespace EmotePrototypev1
             return m_AmountOfEmotesSaid;
         }
 
-        //currentvalue = ((amountsaid / average) * currentvalue ) + currentvalue
+        //Need to call this after you call the record values function
+        public void ValueUpdate()
+        {
+            Console.WriteLine(m_EmoteName + " - Emote value being updated.");
+            m_OldAverage = m_Average;
+
+            CalculateAverage();
+            float valChange = (m_OldAverage / m_Average) / m_CurrentValue;
+
+            //If it's less than the average take away
+            if (m_OldAverage > m_Average)
+            {
+                valChange = m_OldAverage - m_Average;
+                valChange *= -1;
+            }
+
+            m_CurrentValue += valChange;
+            return;
+        }
     }
 }

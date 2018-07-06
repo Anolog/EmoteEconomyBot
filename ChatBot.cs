@@ -58,6 +58,29 @@ namespace EmotePrototypev1
 
         }
 
+        public Dictionary<string, EmoteInfo> GetEmoteInfo()
+        {
+            return m_EmoteInfo;
+        }
+
+        public List<EmoteInfo> GetEmoteInfoList()
+        {
+            List<EmoteInfo> returnVal = new List<EmoteInfo>();
+
+            for (int i = 0; i < m_EmoteInfo.Count; i++)
+            {
+                returnVal.Add((m_EmoteInfo[m_EmoteNamesInDB[i]]));
+            }
+
+            return returnVal;
+        }
+
+        public void UpdatePricing()
+        {
+            Console.WriteLine("Updating price of emotes");
+            return;
+        }
+
         private TwitchClient CreateClient(string aChannelName)
         {
             //Create a client from the array we get from the DB
