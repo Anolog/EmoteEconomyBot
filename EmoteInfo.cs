@@ -55,9 +55,29 @@ namespace EmotePrototypev1
             return m_CurrentValue;
         }
 
+        public float GetLowestValue()
+        {
+            return m_LowestValue;
+        }
+
+        public float GetHighestValue()
+        {
+            return m_HighestValue;
+        }
+
         public float GetAverage()
         {
             return m_Average;
+        }
+        
+        public float GetAmountBought()
+        {
+            return m_AmountBought;
+        }
+
+        public float GetAmountSold()
+        {
+            return m_AmountSold;
         }
 
         public void SetAmountOfEmotesSaid(int aAmount)
@@ -70,13 +90,57 @@ namespace EmotePrototypev1
             return m_AmountOfEmotesSaid;
         }
 
+        //TODO UPDATE STUFF FOR TAKING OVER HIGHEST VALUE, LOWEST VALUE, ETC....
+
         //Need to call this after you call the record values function
         public void ValueUpdate()
         {
             Console.WriteLine(m_EmoteName + " - Emote value being updated.");
+
+            //Change highest and lowest val
+
+            if (m_CurrentValue > m_HighestValue)
+            {
+                m_HighestValue = m_CurrentValue;
+            }
+
+            if (m_CurrentValue < m_LowestValue)
+            {
+                m_LowestValue = m_CurrentValue;
+            }
+
+            if (m_CurrentValue <= 0.01f)
+            {
+                m_CurrentValue = 0.01f;
+            }
+
             m_OldAverage = m_Average;
 
             CalculateAverage();
+
+            if (m_Average == 0)
+            {
+                if (m_CurrentValue <= 0.01f)
+                {
+                    return;
+                }
+
+                m_CurrentValue -= 0.01f;
+                return;
+            }
+
+            /*
+            if (m_OldAverage == 0)
+            {
+                if (m_CurrentValue <= 0.01f)
+                {
+                    return;
+                }
+
+                //m_CurrentValue += 
+            }
+            */
+
             float valChange = (m_OldAverage / m_Average) / m_CurrentValue;
 
             //If it's less than the average take away

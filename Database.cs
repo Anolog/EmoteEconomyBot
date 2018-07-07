@@ -335,6 +335,21 @@ namespace EmotePrototypev1
 
             }
 
+            //Querys for updating the buy/sell
+            string queryUpdateBought = "UPDATE emoteinfo SET AmountBought = AmountBought + " + aAmountToBuy + " WHERE EmoteName = '" + aEmoteToBuy + "'";
+            string queryUpdateSold = "UPDATE emoteinfo SET AmountSold = AmountSold + " + userAmount + " WHERE EmoteName = '" + aEmoteToSell + "'";
+
+            MySqlCommand cmdBought = new MySqlCommand(queryUpdateBought, m_Connection);
+            MySqlCommand cmdSold = new MySqlCommand(queryUpdateSold, m_Connection);
+
+            if (m_Connection.Ping() == false)
+            {
+                m_Connection.Open();
+            }
+
+            cmdBought.ExecuteNonQuery();
+            cmdSold.ExecuteNonQuery();
+
             this.CloseConnection();
             return true;
         }
@@ -588,7 +603,7 @@ namespace EmotePrototypev1
             }
 
             dataReader = cmd.ExecuteReader();
-
+            
             while (dataReader.Read())
             {
                 string username = dataReader.GetString(0);
@@ -656,7 +671,7 @@ namespace EmotePrototypev1
 
         public void RecordHistory(EmoteInfo aEmoteInfo)
         {
-            string query = "INSERT INTO emoterecords VALUES (" + aEmoteInfo.GetID() + ", '" + aEmoteInfo.GetName() + "', " + aEmoteInfo.GetValue() + ", " + aEmoteInfo.GetAverage() + ")";
+            string query = "INSERT INTO emoterecords VALUES (" + aEmoteInfo.GetID() + ", CURRENT_TIMESTAMP, " + aEmoteInfo.GetValue() + ", " + aEmoteInfo.GetAverage() + ")";
 
             MySqlCommand cmd = new MySqlCommand(query, m_Connection);
 
@@ -668,6 +683,30 @@ namespace EmotePrototypev1
             cmd.ExecuteNonQuery();
 
             this.CloseConnection();
+            return;
+        }
+
+        public void UploadEmoteValues(EmoteInfo aEmoteInfo)
+        {
+            string query = "UPDATE emoteinfo SET CurrentValue = " + aEmoteInfo.GetValue() +
+                                                ", LowestValue = " + aEmoteInfo.GetLowestValue() +
+                                                ", HighestValue = " + aEmoteInfo.GetHighestValue() +
+                                                ", AmountBought = " + aEmoteInfo.GetAmountBought() +
+                                                ", AmountSold = " + aEmoteInfo.GetAmountSold() +
+                                                ", Average = " + aEmoteInfo.GetAverage() +
+                                                " WHERE EmoteName = '" + aEmoteInfo.GetName() + "'";
+
+            MySqlCommand cmd = new MySqlCommand(query, m_Connection);
+
+            if (m_Connection.Ping() == false)
+            {
+                m_Connection.Open();
+            }
+
+            cmd.ExecuteNonQuery();
+
+            this.CloseConnection();
+
             return;
         }
 

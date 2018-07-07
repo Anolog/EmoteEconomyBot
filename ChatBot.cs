@@ -19,7 +19,7 @@ namespace EmotePrototypev1
         public Stopwatch m_Timer = Stopwatch.StartNew();
 
         readonly ConnectionCredentials m_Credentials = new ConnectionCredentials(TwitchInfo.BotUsername, TwitchInfo.BotToken);
-        string m_BotChannel = "monkascountbot";
+        string m_BotChannel = "EmoteEconomyBot";
 
         //Used for emote tracking
         public const float AMOUNT_OF_TIME_SECONDS = 60.0f;

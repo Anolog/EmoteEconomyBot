@@ -36,14 +36,17 @@ namespace EmotePrototypev1
                 {
                     m_Bot.UpdatePricing();
                     List<EmoteInfo> recordEmoteData = m_Bot.GetEmoteInfoList();
-
+                    
+                    //Update the info
                     for (int i = 0; i < recordEmoteData.Count; i++)
                     {
                         recordEmoteData[i].ValueUpdate();
                         m_Database.RecordHistory(recordEmoteData[i]);
+                        m_Database.UploadEmoteValues(recordEmoteData[i]);
                     }
 
                     m_Timer.Reset();
+                    m_Timer.Start();
                 }
             }
 
