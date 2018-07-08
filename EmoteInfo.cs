@@ -122,36 +122,45 @@ namespace EmotePrototypev1
             {
                 if (m_CurrentValue <= 0.01f)
                 {
+                    ValLessZero();
+                    return;
+                }
+
+                if (m_OldAverage != 0)
+                {
+                    m_CurrentValue -= (m_OldAverage / m_CurrentValue);
+                    ValLessZero();
                     return;
                 }
 
                 m_CurrentValue -= 0.01f;
+                ValLessZero();
                 return;
             }
-
-            /*
-            if (m_OldAverage == 0)
-            {
-                if (m_CurrentValue <= 0.01f)
-                {
-                    return;
-                }
-
-                //m_CurrentValue += 
-            }
-            */
 
             float valChange = (m_OldAverage / m_Average) / m_CurrentValue;
 
             //If it's less than the average take away
-            if (m_OldAverage > m_Average)
+            if (m_OldAverage > m_Average && m_OldAverage != 0)
             {
                 valChange = m_OldAverage - m_Average;
                 valChange *= -1;
             }
 
             m_CurrentValue += valChange;
+            ValLessZero();
+
             return;
         }
+
+        public void ValLessZero()
+        {
+            if (m_CurrentValue <= 0)
+            {
+                m_CurrentValue = 0.01f;
+            }
+        }
     }
+
+
 }

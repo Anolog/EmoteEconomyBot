@@ -188,12 +188,15 @@ namespace EmotePrototypev1
 
         }
 
-        public bool TradeEmote(string aUsername, string aEmoteToSell, string aEmoteToBuy, float aAmountToBuy)
+        public bool TradeEmote(string aUsername, string aEmoteToSell, string aEmoteToBuy, float aAmountToBuy, float aAverage)
         {
             //Need to see if both emotes exist for the user
             //Then need to see if they can buy that amount
             //If they can, then it needs to update that they can buy that amount
 
+            float sellVal = 0;
+            float buyVal = 0;
+            float sellAmount = 0;
             int ID = GetUserID(aUsername);
             string emoteBeingChecked = aEmoteToBuy;
 
@@ -273,6 +276,10 @@ namespace EmotePrototypev1
 
                 float tradeConversion = sellPrice / buyPrice;
 
+                //This is horrible
+                sellVal = sellPrice;
+                buyVal = buyPrice;
+
                 //If they enter an amount that is greater than what they can buy
                 if ((userAmount * tradeConversion) < aAmountToBuy)
                 {
@@ -321,6 +328,7 @@ namespace EmotePrototypev1
                 {
                     purchaseAmount = aAmountToBuy / tradeConversion;
                     userAmount -= purchaseAmount;
+                    sellAmount = purchaseAmount;
 
                     //update text
                     queryAddToEmoteAmount = "UPDATE emotecount SET Amount = Amount + " + aAmountToBuy + " WHERE DatabaseUserID = " + ID + " AND EmoteName = '" + aEmoteToBuy + "'";
@@ -332,6 +340,7 @@ namespace EmotePrototypev1
                     cmdAddEmote.ExecuteNonQuery();
                     cmdSubEmote.ExecuteNonQuery();
                 }
+                sellAmount = purchaseAmount;
 
             }
 
@@ -342,9 +351,26 @@ namespace EmotePrototypev1
             MySqlCommand cmdBought = new MySqlCommand(queryUpdateBought, m_Connection);
             MySqlCommand cmdSold = new MySqlCommand(queryUpdateSold, m_Connection);
 
+
             if (m_Connection.Ping() == false)
             {
                 m_Connection.Open();
+            }
+
+            //Should never be 0
+            if (sellVal != 0 && buyVal != 0)
+            {
+                sellVal = (sellAmount / aAverage) / sellVal;
+                buyVal = (aAmountToBuy / aAverage) / buyVal;
+
+                string queryBuy = "UPDATE emoteinfo CurrentValue = CurrentValue + " + buyVal + " WHERE EmoteName = '" + aEmoteToBuy + "'";
+                string querySell = "UPDATE emoteinfo CurrentValue = CurrentValue + " + sellVal + " WHERE EmoteName = '" + aEmoteToSell + "'";
+
+                MySqlCommand cmdBuy = new MySqlCommand(queryBuy, m_Connection);
+                MySqlCommand cmdSell = new MySqlCommand(querySell, m_Connection);
+
+                cmdBuy.ExecuteNonQuery();
+                cmdSell.ExecuteNonQuery();
             }
 
             cmdBought.ExecuteNonQuery();

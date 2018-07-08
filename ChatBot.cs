@@ -154,9 +154,11 @@ namespace EmotePrototypev1
                             m_Database.InsertUserToChatDB(e.ChatMessage.Username, id);
 
                             m_ClientList[e.ChatMessage.Channel].SendMessage(m_BotChannel, e.ChatMessage.Username + " is now active!");
+                            m_ClientList[e.ChatMessage.Username].SendMessage(e.ChatMessage.Username, "Emote Economy Bot is now active in this channel!");
 
                         }
                     }
+                    //TODO: EFFECT MARKET WEHEN BUYING AND SELLING
 
                     //if they are not in the db, put them into both
                     if (inDB == false)
@@ -201,14 +203,18 @@ namespace EmotePrototypev1
                 // 0             1      2   3      4
                 // !EconomyTrade Emote1 for Emote2 amount
                 //TODO:
-                //FIX THIS TO MAKE SURE THAT IT HAS TO BE X LENGTH MINIMUM AND THAT THE WORD IS ACTULLY THE CORRECT WORD
+                //FIX THIS TO MAKE SURE THAT THE WORD IS ACTULLY THE CORRECT WORD
                 if (e.ChatMessage.Message.StartsWith("!EconomyTrade") && chatMessage.Length >= 5)
                 {
-                    bool transaciton = m_Database.TradeEmote(e.ChatMessage.Username, chatMessage[1], chatMessage[3], Convert.ToInt32(chatMessage[4]));
+                    bool transaciton = m_Database.TradeEmote(e.ChatMessage.Username, chatMessage[1], chatMessage[3], Convert.ToInt32(chatMessage[4]), m_EmoteInfo[chatMessage[1]].GetAverage());
 
                     //Determine if fail or sucess
                     if (transaciton == true)
                     {
+                        //Modify market -> Move this call and the buy call to be in the TradeEmote, or make a function to move it in there
+                        
+
+                        //Tell user it was accepted
                         m_ClientList[e.ChatMessage.Channel].SendMessage(e.ChatMessage.Channel, e.ChatMessage.Username + ", your transaction was sucessful!");
                     }
 
