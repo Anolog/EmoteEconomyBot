@@ -140,7 +140,7 @@ namespace EmotePrototypev1
             //Take it and put it into an emoteinfo format and add to the dictionary
             foreach (DataRow dataRow in dataTable.Rows)
             {
-                EmoteInfo eData = new EmoteInfo(Convert.ToInt32(dataRow[0]), Convert.ToString(dataRow[1]), Convert.ToSingle(dataRow[2]), Convert.ToSingle(dataRow[3]), 
+                EmoteInfo eData = new EmoteInfo(Convert.ToInt32(dataRow[0]), Convert.ToString(dataRow[1]), Convert.ToSingle(dataRow[2]), Convert.ToSingle(dataRow[3]),
                                                 Convert.ToSingle(dataRow[4]), Convert.ToSingle(dataRow[5]), Convert.ToSingle(dataRow[6]), Convert.ToSingle(dataRow[7]));
                 emoteInfo.Add((string)dataRow[1], eData);
 
@@ -291,7 +291,7 @@ namespace EmotePrototypev1
                 //TODO:
                 //THIS AREA BELOW IS WHERE THE PRICE NEEDS TO BE EFFECTED. AFTER THE PURCHASE IS MADE
                 //THIS AREAD BELOW ALSO NEEDS TO ADD INFO TO THE STATS THAT ARE BEING TRACKED IN THE DATABASE
-                
+
                 float purchaseAmount = 0;
 
                 string queryAddToEmoteAmount = "UPDATE emotecount SET Amount = Amount + " + purchaseAmount + " WHERE DatabaseUserID = " + ID + " AND EmoteName = '" + aEmoteToBuy + "'";
@@ -629,7 +629,7 @@ namespace EmotePrototypev1
             }
 
             dataReader = cmd.ExecuteReader();
-            
+
             while (dataReader.Read())
             {
                 string username = dataReader.GetString(0);
@@ -734,6 +734,51 @@ namespace EmotePrototypev1
             this.CloseConnection();
 
             return;
+        }
+
+        public List<Tuple<string, string>> GetUserWallet(int aUserID)
+        {
+            string queryWalletAmount = "SELECT COUNT(*) FROM emotecount WHERE DatabaseUserID = " + aUserID;
+            MySqlCommand cmdAmount = new MySqlCommand(queryWalletAmount, m_Connection);
+
+            if (m_Connection.Ping() == false)
+            {
+                m_Connection.Open();
+            }
+
+            object amount = cmdAmount.ExecuteScalar();
+
+            if (Convert.ToInt32(amount) == 0)
+            {
+                List<Tuple<string, string>> errorReturn = new List<Tuple<string, string>>();
+                Tuple<string, string> errorTuple = new Tuple<string, string>("Error", "Error");
+                errorReturn.Add(errorTuple);
+
+                this.CloseConnection();
+                return errorReturn;
+            }
+
+            else
+            {
+                string queryWalletInfo = "SELECT EmoteName, Amount FROM emotecount WHERE DatabaseUserID = " + aUserID;
+                MySqlCommand cmdWallet = new MySqlCommand(queryWalletAmount, m_Connection);
+
+                List<Tuple<string, string>> walletInfo = new List<Tuple<string, string>>();
+
+                MySqlDataReader reader;
+
+                reader = cmdWallet.ExecuteReader();
+
+                while (reader.Read())
+                {
+                    Tuple<string, string> fromDB = new Tuple<string, string>(Convert.ToString(reader[0]), Convert.ToString(reader[1]));
+                    walletInfo.Add(fromDB);
+                }
+
+                this.CloseConnection();
+                return walletInfo;
+            }
+
         }
 
     }

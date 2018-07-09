@@ -221,6 +221,11 @@ namespace EmotePrototypev1
                     return;
                 }
 
+                else if (e.ChatMessage.Message.StartsWith("!EconomyWallet"))
+                {
+                    HandleUserWallet(m_Database.GetUserWallet(m_Database.GetUserID(e.ChatMessage.Username)), e);
+                }
+
                 HandleEmotes(chatMessage);
             }
 
@@ -277,6 +282,40 @@ namespace EmotePrototypev1
                         m_EmoteInfo[m_EmoteNamesInDB[j]].GetAmountOFEmotesSaid() + 1);
                     }
                 }
+            }
+        }
+
+        private void HandleUserWallet(List<Tuple<string, string>> aWallet, OnMessageReceivedArgs e)
+        {
+            //Check if error
+            if (aWallet[0].Item1 == "Error" && aWallet[0].Item2 == "Error")
+            {
+                //Send message saying user has nothing
+                m_ClientList[m_BotChannel].SendWhisper(e.ChatMessage.Username, "You currently have nothing in your wallet!");
+                return;
+            }
+
+            else
+            {
+                //Give message saying what the user has
+                StringBuilder sb = new StringBuilder();
+                sb.Append("You currently have, ");
+                
+                for (int i = 0; i < aWallet.Count(); i++)
+                {
+                    sb.Append(aWallet[i].Item1);
+                    sb.Append(": ");
+                    sb.Append(aWallet[i].Item2);
+                }
+
+                //Depending how big the limit is for whisper length...
+                //Might need to do sb.length/count to see how long it is
+                //Then split it up into multiple parts
+
+                string whisperMessage = sb.ToString();
+                m_ClientList[m_BotChannel].SendWhisper(e.ChatMessage.Username, whisperMessage);
+
+                return;
             }
         }
     }
