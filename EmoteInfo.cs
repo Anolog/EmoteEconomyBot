@@ -55,6 +55,11 @@ namespace EmotePrototypev1
             return m_CurrentValue;
         }
 
+        public void SetValue(float aValue)
+        {
+            m_CurrentValue = aValue;
+        }
+
         public float GetLowestValue()
         {
             return m_LowestValue;
@@ -75,9 +80,19 @@ namespace EmotePrototypev1
             return m_AmountBought;
         }
 
+        public void SetAmountBought(float aAmount)
+        {
+            m_AmountBought = aAmount;
+        }
+
         public float GetAmountSold()
         {
             return m_AmountSold;
+        }
+
+        public void SetAmountSold(float aAmount)
+        {
+            m_AmountSold = aAmount;
         }
 
         public void SetAmountOfEmotesSaid(int aAmount)
@@ -89,8 +104,6 @@ namespace EmotePrototypev1
         {
             return m_AmountOfEmotesSaid;
         }
-
-        //TODO UPDATE STUFF FOR TAKING OVER HIGHEST VALUE, LOWEST VALUE, ETC....
 
         //Need to call this after you call the record values function
         public void ValueUpdate()

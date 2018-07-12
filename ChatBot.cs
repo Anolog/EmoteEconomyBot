@@ -116,6 +116,10 @@ namespace EmotePrototypev1
         {
             //m_ClientList[0].SendMessage("monkascountbot", m_ClientList[0].TwitchUsername);
 
+            //TODO:
+            //BIG / IMPORTANT
+            //Move all of the if statements into a function to group the same commands
+
             string[] chatMessage = e.ChatMessage.Message.Split(' ', '\t');
 
             //If the client that the message recieved is the main bot
@@ -211,8 +215,8 @@ namespace EmotePrototypev1
                     //Determine if fail or sucess
                     if (transaciton == true)
                     {
+                        //TODO:
                         //Modify market -> Move this call and the buy call to be in the TradeEmote, or make a function to move it in there
-                        
 
                         //Tell user it was accepted
                         m_ClientList[e.ChatMessage.Channel].SendMessage(e.ChatMessage.Channel, e.ChatMessage.Username + ", your transaction was sucessful!");
@@ -225,6 +229,21 @@ namespace EmotePrototypev1
                 {
                     HandleUserWallet(m_Database.GetUserWallet(m_Database.GetUserID(e.ChatMessage.Username)), e);
                 }
+
+                //Output to whisper
+                else if (e.ChatMessage.Message.StartsWith("!EconomyMoney"))
+                {
+                    HandleMoneyCommand(true, e);
+                }
+
+                //Output to all of chat
+                else if (e.ChatMessage.Message.StartsWith("!EconomyShowMoney"))
+                {
+                    HandleMoneyCommand(false, e);
+                }
+
+                //TODO:
+                //Add commands for buying and selling emotes
 
                 HandleEmotes(chatMessage);
             }
@@ -248,8 +267,32 @@ namespace EmotePrototypev1
             return;
         }
 
-       private void RegisterCommand(OnMessageReceivedArgs e)
-       {
+        private void HandleMoneyCommand(bool aWhisper, OnMessageReceivedArgs e)
+        {
+            float moneyAmount = m_Database.GetMoney(e.ChatMessage.Username);
+
+            //Debug
+            if (moneyAmount == -1)
+            {
+                Console.WriteLine("Error: User tried to ask how much money they have but they aren't in the database");
+                return;
+            }
+
+            if (aWhisper == true)
+            {
+                m_ClientList[m_BotChannel].SendWhisper(e.ChatMessage.UserId, "Your current balance is $" + moneyAmount);
+                return;
+            }
+
+            else if (aWhisper == false)
+            {
+                m_ClientList[e.ChatMessage.Channel].SendMessage(e.ChatMessage.UserId, "@" + e.ChatMessage.Username + ", Your current balance is $" + moneyAmount);
+                return;
+            }
+        }
+
+        private void RegisterCommand(OnMessageReceivedArgs e)
+        {
             //Check if they are in the database or not and inserts them
             if (m_Database.InsertUserToDB_BoolCheck(e.ChatMessage.Username) == true)
             {
@@ -300,7 +343,7 @@ namespace EmotePrototypev1
                 //Give message saying what the user has
                 StringBuilder sb = new StringBuilder();
                 sb.Append("You currently have, ");
-                
+
                 for (int i = 0; i < aWallet.Count(); i++)
                 {
                     sb.Append(aWallet[i].Item1);
