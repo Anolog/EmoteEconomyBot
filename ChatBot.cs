@@ -242,8 +242,18 @@ namespace EmotePrototypev1
                     HandleMoneyCommand(false, e);
                 }
 
-                //TODO:
-                //Add commands for buying and selling emotes
+                //CHAT MESSAGE FOR BUYING/SELLING
+                // 0                  1      2 
+                // !EconomyBuy/Sell Emote Amount
+                else if (e.ChatMessage.Message.StartsWith("!EconomyBuy"))
+                {
+                    HandleBuySellCommand(true, m_EmoteInfo[chatMessage[1]], Convert.ToSingle(chatMessage[2]) , e);
+                }
+
+                else if (e.ChatMessage.Message.StartsWith("!EconomySell"))
+                {
+                    HandleBuySellCommand(false, m_EmoteInfo[chatMessage[1]], Convert.ToSingle(chatMessage[2]), e);
+                }
 
                 HandleEmotes(chatMessage);
             }
@@ -267,6 +277,24 @@ namespace EmotePrototypev1
             return;
         }
 
+        private void HandleBuySellCommand(bool aBuying, EmoteInfo aEmoteInfo, float aAmount, OnMessageReceivedArgs e)
+        {
+            if (aAmount <= 0)
+            {
+                return;
+            }
+
+            if (aBuying == true)
+            {
+                m_Database.BuyEmote(aEmoteInfo, aAmount, e.ChatMessage.Username );
+            }
+
+            else if (aBuying == false)
+            {
+                m_Database.SellEmote(aEmoteInfo, aAmount, e.ChatMessage.Username);
+            }
+        }
+
         private void HandleMoneyCommand(bool aWhisper, OnMessageReceivedArgs e)
         {
             float moneyAmount = m_Database.GetMoney(e.ChatMessage.Username);
@@ -280,13 +308,13 @@ namespace EmotePrototypev1
 
             if (aWhisper == true)
             {
-                m_ClientList[m_BotChannel].SendWhisper(e.ChatMessage.UserId, "Your current balance is $" + moneyAmount);
+                m_ClientList[m_BotChannel.ToLower()].SendWhisper(e.ChatMessage.Username, "Your current balance is $" + moneyAmount);
                 return;
             }
 
             else if (aWhisper == false)
             {
-                m_ClientList[e.ChatMessage.Channel].SendMessage(e.ChatMessage.UserId, "@" + e.ChatMessage.Username + ", Your current balance is $" + moneyAmount);
+                m_ClientList[e.ChatMessage.Channel].SendMessage(e.ChatMessage.Username, "@" + e.ChatMessage.Username + ", Your current balance is $" + moneyAmount);
                 return;
             }
         }

@@ -814,7 +814,7 @@ namespace EmotePrototypev1
             //Make sure to set aAmount to 2 decimal places
             aAmount = Convert.ToSingle(Math.Round(aAmount, 2));
 
-            string query = "UPDATE userinfo SET money = money + " + aAmount;
+            string query = "UPDATE userinfo SET money = money + " + aAmount + " WHERE Username = '" + aUsername + "'" ;
 
             MySqlCommand cmd = new MySqlCommand(query, m_Connection);
 
@@ -840,13 +840,6 @@ namespace EmotePrototypev1
 
         public void BuyEmote(EmoteInfo aEmoteInfo, float aAmount, string aUsername)
         {
-            //TODO:
-            //Also put this check when they are calling this function
-            //Cannot buy 0 or less than 0
-            if (aAmount <= 0)
-            {
-                return;
-            }
 
             string queryEmoteCost = "SELECT CurrentValue FROM emoteinfo WHERE EmoteName = '" + aEmoteInfo.GetName() + "'";
             float emoteCost = -1;
@@ -900,6 +893,7 @@ namespace EmotePrototypev1
             aEmoteInfo.SetAmountBought( aEmoteInfo.GetAmountBought() + aAmount);
 
             userMoney -= totalCost;
+            userMoney *= -1;
 
             SetMoney(aUsername, userMoney);
 
@@ -913,12 +907,24 @@ namespace EmotePrototypev1
 
             int ID = GetUserID(aUsername);
 
+            //Make a query to check if we need to put that emote into the db for that user
+            string queryCheckIfInEmoteCount = "SELECT COUNT(*) FROM emotecount WHERE EmoteName = '" + aEmoteInfo.GetName() + "' AND DatabaseUserID = " + ID;
+            MySqlCommand cmdCheckEmoteCount = new MySqlCommand(queryCheckIfInEmoteCount, m_Connection);
+
             if (m_Connection.Ping() == false)
             {
                 m_Connection.Open();
             }
 
-            string updateUserAmount = "UPDATE emoteinfo SET Amount = Amount + " + aAmount + " WHERE EmoteName = '" + aEmoteInfo.GetName() + "' AND DatabaseUserID = " + ID;
+            if (Convert.ToInt32(cmdCheckEmoteCount.ExecuteScalar()) == 0)
+            {
+                string queryUpdateEmoteCount = "INSERT INTO emotecount VALUES ('" + aEmoteInfo.GetName() + "', " + ID + ", 0)";
+                MySqlCommand cmdUpdateEmoteCount = new MySqlCommand(queryUpdateEmoteCount, m_Connection);
+
+                cmdUpdateEmoteCount.ExecuteNonQuery();
+            }
+
+            string updateUserAmount = "UPDATE emotecount SET Amount = Amount + " + aAmount + " WHERE EmoteName = '" + aEmoteInfo.GetName() + "' AND DatabaseUserID = " + ID;
             MySqlCommand cmdUpdateUserEmoteData = new MySqlCommand(updateUserAmount, m_Connection);
 
             cmdUpdateUserEmoteData.ExecuteNonQuery();
@@ -928,14 +934,6 @@ namespace EmotePrototypev1
 
         public void SellEmote(EmoteInfo aEmoteInfo, float aAmount, string aUsername)
         {
-            //TODO:
-            //Also put this check when they are calling this function
-            //Cannot buy 0 or less than 0
-            if (aAmount <= 0)
-            {
-                return;
-            }
-
             //Update the user amount for that emote
             int ID = GetUserID(aUsername);
 
@@ -983,6 +981,11 @@ namespace EmotePrototypev1
             string queryCheckSellAmount = "SELECT Amount FROM emotecount WHERE EmoteName = '" + aEmoteInfo.GetName() + "' AND DatabaseUserID = " + ID;
             MySqlCommand cmdGetAmountOfEmote = new MySqlCommand(queryCheckSellAmount, m_Connection);
 
+            if (m_Connection.Ping() == false)
+            {
+                m_Connection.Open();
+            }
+
             float emoteAmount = Convert.ToSingle(cmdGetAmountOfEmote.ExecuteScalar());
 
             if (emoteAmount < aAmount)
@@ -1010,7 +1013,7 @@ namespace EmotePrototypev1
                 m_Connection.Open();
             }
 
-            string queryUpdateUserAmount = "UPDATE emoteinfo SET Amount = Amount - " + aAmount + " WHERE EmoteName = '" + aEmoteInfo.GetName() + "' AND DatabaseUserID = " + ID;
+            string queryUpdateUserAmount = "UPDATE emotecount SET Amount = Amount - " + aAmount + " WHERE EmoteName = '" + aEmoteInfo.GetName() + "' AND DatabaseUserID = " + ID;
             MySqlCommand cmdUpdateUserEmoteData = new MySqlCommand(queryUpdateUserAmount, m_Connection);
 
             cmdUpdateUserEmoteData.ExecuteNonQuery();
