@@ -142,6 +142,7 @@ namespace EmotePrototypev1
             {
                 EmoteInfo eData = new EmoteInfo(Convert.ToInt32(dataRow[0]), Convert.ToString(dataRow[1]), Convert.ToSingle(dataRow[2]), Convert.ToSingle(dataRow[3]),
                                                 Convert.ToSingle(dataRow[4]), Convert.ToSingle(dataRow[5]), Convert.ToSingle(dataRow[6]), Convert.ToSingle(dataRow[7]));
+
                 emoteInfo.Add((string)dataRow[1], eData);
 
                 emoteNames.Add((string)dataRow[1]);
@@ -287,10 +288,6 @@ namespace EmotePrototypev1
                     this.CloseConnection();
                     return false;
                 }
-
-                //TODO:
-                //THIS AREA BELOW IS WHERE THE PRICE NEEDS TO BE EFFECTED. AFTER THE PURCHASE IS MADE
-                //THIS AREAD BELOW ALSO NEEDS TO ADD INFO TO THE STATS THAT ARE BEING TRACKED IN THE DATABASE
 
                 float purchaseAmount = 0;
 
@@ -440,7 +437,7 @@ namespace EmotePrototypev1
 
             else
             {
-                string query = "INSERT INTO userinfo VALUES (NULL, '" + aUsername + "', CURRENT_TIMESTAMP, 50)";
+                string query = "INSERT INTO userinfo VALUES (NULL, '" + aUsername + "', CURRENT_TIMESTAMP, 300)";
 
                 if (m_Connection.Ping() == false)
                 {
@@ -506,7 +503,7 @@ namespace EmotePrototypev1
 
             else
             {
-                string query = "INSERT INTO userinfo VALUES (NULL, '" + aUsername + "', CURRENT_TIMESTAMP, 50)";
+                string query = "INSERT INTO userinfo VALUES (NULL, '" + aUsername + "', CURRENT_TIMESTAMP, 300)";
 
                 if (m_Connection.Ping() == false)
                 {
@@ -838,7 +835,7 @@ namespace EmotePrototypev1
             return;
         }
 
-        public void BuyEmote(EmoteInfo aEmoteInfo, float aAmount, string aUsername)
+        public bool BuyEmote(EmoteInfo aEmoteInfo, float aAmount, string aUsername)
         {
 
             string queryEmoteCost = "SELECT CurrentValue FROM emoteinfo WHERE EmoteName = '" + aEmoteInfo.GetName() + "'";
@@ -857,7 +854,7 @@ namespace EmotePrototypev1
             if (Convert.ToInt32(cmdCheck.ExecuteScalar()) == 0)
             {
                 Console.WriteLine("Tried looking for an emote, but it does not exist in the database");
-                return;
+                return false;
             }
 
             emoteCost = Convert.ToSingle(cmdCost.ExecuteScalar());
@@ -867,7 +864,7 @@ namespace EmotePrototypev1
             //Check if user is even in the database for moneywise
             if (userMoney == -1)
             {
-                return;
+                return false;
             }
 
             float totalCost;
@@ -878,7 +875,7 @@ namespace EmotePrototypev1
             {
                 Console.WriteLine("Error: total cost is less than 0, something went wrong");
                 Console.WriteLine("Emote Value: " + aEmoteInfo.GetValue());
-                return;
+                return false;
             }
             
             //Check if user has enough money to buy that amount
@@ -886,7 +883,7 @@ namespace EmotePrototypev1
             {
                 Console.WriteLine("User does not have enough money to buy the amount they want");
                 Console.WriteLine("Total Cost: " + totalCost + " UserMoney: " + userMoney);
-                return;
+                return false;
             }
 
             //Update the amount of that emote that was bought
@@ -908,6 +905,7 @@ namespace EmotePrototypev1
             int ID = GetUserID(aUsername);
 
             //Make a query to check if we need to put that emote into the db for that user
+
             string queryCheckIfInEmoteCount = "SELECT COUNT(*) FROM emotecount WHERE EmoteName = '" + aEmoteInfo.GetName() + "' AND DatabaseUserID = " + ID;
             MySqlCommand cmdCheckEmoteCount = new MySqlCommand(queryCheckIfInEmoteCount, m_Connection);
 
@@ -918,10 +916,19 @@ namespace EmotePrototypev1
 
             if (Convert.ToInt32(cmdCheckEmoteCount.ExecuteScalar()) == 0)
             {
+                /*
                 string queryUpdateEmoteCount = "INSERT INTO emotecount VALUES ('" + aEmoteInfo.GetName() + "', " + ID + ", 0)";
                 MySqlCommand cmdUpdateEmoteCount = new MySqlCommand(queryUpdateEmoteCount, m_Connection);
 
                 cmdUpdateEmoteCount.ExecuteNonQuery();
+                */
+
+                this.AddToEmoteCount(aUsername, aEmoteInfo.GetName());
+            }
+
+            if (m_Connection.Ping() == false)
+            {
+                m_Connection.Open();
             }
 
             string updateUserAmount = "UPDATE emotecount SET Amount = Amount + " + aAmount + " WHERE EmoteName = '" + aEmoteInfo.GetName() + "' AND DatabaseUserID = " + ID;
@@ -930,9 +937,10 @@ namespace EmotePrototypev1
             cmdUpdateUserEmoteData.ExecuteNonQuery();
 
             this.CloseConnection();
+            return true;
         }
 
-        public void SellEmote(EmoteInfo aEmoteInfo, float aAmount, string aUsername)
+        public bool SellEmote(EmoteInfo aEmoteInfo, float aAmount, string aUsername)
         {
             //Update the user amount for that emote
             int ID = GetUserID(aUsername);
@@ -953,7 +961,7 @@ namespace EmotePrototypev1
             if (Convert.ToInt32(cmdCheck.ExecuteScalar()) == 0)
             {
                 Console.WriteLine("Tried looking for an emote, but it does not exist in the database");
-                return;
+                return false;
             }
 
             emoteCost = Convert.ToSingle(cmdCost.ExecuteScalar());
@@ -963,7 +971,7 @@ namespace EmotePrototypev1
             //Check if user is even in the database for moneywise
             if (userMoney == -1)
             {
-                return;
+                return false;
             }
 
             float totalSellValue;
@@ -974,7 +982,7 @@ namespace EmotePrototypev1
             {
                 Console.WriteLine("Error: sell value is less than 0, something went wrong");
                 Console.WriteLine("Emote Value: " + aEmoteInfo.GetValue());
-                return;
+                return false;
             }
 
             //Check if they have enough in the database
@@ -992,7 +1000,7 @@ namespace EmotePrototypev1
             {
                 Console.WriteLine("Not enough emotes to sell.");
                 this.CloseConnection();
-                return;
+                return false;
             }
 
             //Update the amount of that emote that was bought
@@ -1019,6 +1027,47 @@ namespace EmotePrototypev1
             cmdUpdateUserEmoteData.ExecuteNonQuery();
 
             this.CloseConnection();
+
+            return true;
+        }
+
+        public float GetEmoteValue(string aEmoteName)
+        {
+            float val = 0;
+
+            string query = "SELECT CurrentValue FROM emoteinfo WHERE EmoteName = '" + aEmoteName + "'";
+            MySqlCommand cmd = new MySqlCommand(query, m_Connection);
+
+            if (m_Connection.Ping() == false)
+            {
+                m_Connection.Open();
+            }
+
+            val = Convert.ToSingle(cmd.ExecuteScalar());
+
+            this.CloseConnection();
+            return val;
+        }
+
+        public float GetAmountOfEmote(string aEmoteName, string aUsername)
+        {
+            float val = 0;
+            int ID = GetUserID(aUsername);
+
+            string query = "SELECT Amount FROM emotecount WHERE EmoteName = '" + aEmoteName + "' AND DatabaseUserID = " + ID;
+            MySqlCommand cmd = new MySqlCommand(query, m_Connection);
+
+            if (m_Connection.Ping() == false)
+            {
+                m_Connection.Open();
+            }
+
+            val = Convert.ToSingle(cmd.ExecuteScalar());
+
+            this.CloseConnection();
+
+            return val;
+
         }
     }
 }

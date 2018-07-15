@@ -206,11 +206,24 @@ namespace EmotePrototypev1
                 //CHAT MESSAGE FOR TRADING
                 // 0             1      2   3      4
                 // !EconomyTrade Emote1 for Emote2 amount
-                //TODO:
-                //FIX THIS TO MAKE SURE THAT THE WORD IS ACTULLY THE CORRECT WORD
                 if (e.ChatMessage.Message.StartsWith("!EconomyTrade") && chatMessage.Length >= 5)
                 {
-                    bool transaciton = m_Database.TradeEmote(e.ChatMessage.Username, chatMessage[1], chatMessage[3], Convert.ToInt32(chatMessage[4]), m_EmoteInfo[chatMessage[1]].GetAverage());
+                    if (chatMessage[2] != "for")
+                    {
+                        Console.Write(e.ChatMessage.Username + " tried to trade but messed up the wording on for");
+                        return;
+                    }
+
+                    bool parse = float.TryParse(chatMessage[4], out float result);
+                    
+                    //parse failed
+                    if (parse == false)
+                    {
+                        Console.WriteLine(e.ChatMessage.Username + " attempted to use a non float/int value for the amount to buy");
+                        return;
+                    }
+                    
+                    bool transaciton = m_Database.TradeEmote(e.ChatMessage.Username, chatMessage[1], chatMessage[3], result, m_EmoteInfo[chatMessage[1]].GetAverage());
 
                     //Determine if fail or sucess
                     if (transaciton == true)
@@ -225,9 +238,12 @@ namespace EmotePrototypev1
                     return;
                 }
 
+                //TODO:
+                //SPLIT THE MESSAGE UP IF GREATER THAN CERTAIN AMOUNT
                 else if (e.ChatMessage.Message.StartsWith("!EconomyWallet"))
                 {
-                    HandleUserWallet(m_Database.GetUserWallet(m_Database.GetUserID(e.ChatMessage.Username)), e);
+                    //HandleUserWallet(m_Database.GetUserWallet(m_Database.GetUserID(e.ChatMessage.Username)), e);
+                    //m_ClientList[m_BotChannel].SendWhisper(e.ChatMessage.Username, "This command is currently disabled! It breaks the bot. LUL");
                 }
 
                 //Output to whisper
@@ -245,14 +261,50 @@ namespace EmotePrototypev1
                 //CHAT MESSAGE FOR BUYING/SELLING
                 // 0                  1      2 
                 // !EconomyBuy/Sell Emote Amount
-                else if (e.ChatMessage.Message.StartsWith("!EconomyBuy"))
+
+                //TODO:
+                //CLEAN THIS CODE LATER
+                else if (e.ChatMessage.Message.StartsWith("!EconomyBuy") && chatMessage.Length >= 2)
                 {
-                    HandleBuySellCommand(true, m_EmoteInfo[chatMessage[1]], Convert.ToSingle(chatMessage[2]) , e);
+
+                    bool parse = float.TryParse(chatMessage[2], out float result);
+
+                    //parse failed
+                    if (parse == false)
+                    {
+                        Console.WriteLine(e.ChatMessage.Username + " attempted to use a non float/int value for the amount to buy");
+                        return;
+                    }
+
+                    //TODO:
+                    //PUT A CHECK FOR EMOTE LIST IN HERE
+
+                    HandleBuySellCommand(true, m_EmoteInfo[chatMessage[1]], result , e);
                 }
 
-                else if (e.ChatMessage.Message.StartsWith("!EconomySell"))
+                else if (e.ChatMessage.Message.StartsWith("!EconomySell") && chatMessage.Length >= 2)
                 {
-                    HandleBuySellCommand(false, m_EmoteInfo[chatMessage[1]], Convert.ToSingle(chatMessage[2]), e);
+                    bool parse = float.TryParse(chatMessage[2], out float result);
+
+                    //parse failed
+                    if (parse == false)
+                    {
+                        Console.WriteLine(e.ChatMessage.Username + " attempted to use a non float/int value for the amount to buy");
+                        return;
+                    }
+
+                    HandleBuySellCommand(false, m_EmoteInfo[chatMessage[1]], result, e);
+                }
+                //      0             1
+                //!EconomyEmoteValue Kappa
+                else if (e.ChatMessage.Message.StartsWith("!EconomyEmoteValue") && chatMessage.Length >= 1)
+                {
+                    HandleEmoteValueCommand(chatMessage[1], e);
+                }
+
+                else if (e.ChatMessage.Message.StartsWith("!EconomyMyEmoteAmount"))
+                {
+                    HandleWalletEmoteAmount(chatMessage[1], e);
                 }
 
                 HandleEmotes(chatMessage);
@@ -277,8 +329,35 @@ namespace EmotePrototypev1
             return;
         }
 
+        private void HandleEmoteValueCommand(string aEmote, OnMessageReceivedArgs e)
+        {
+            bool emoteExists = false;
+            float val = 0;
+
+            for (int i = 0; i < m_EmoteNamesInDB.Count; i++)
+            {
+                if (m_EmoteNamesInDB[i] == aEmote)
+                {
+                    emoteExists = true;
+                    break;
+                }
+            }
+
+            if (emoteExists == true)
+            {
+                val = m_Database.GetEmoteValue(aEmote);
+
+                m_ClientList[e.ChatMessage.Channel].SendMessage(e.ChatMessage.Channel, "The value for " + aEmote + " is: " + val);
+                //m_ClientList[m_BotChannel.ToLower()].SendWhisper(e.ChatMessage.Username, "The value for " + aEmote + " is: " + val);
+            }
+
+            return;
+        }
+
         private void HandleBuySellCommand(bool aBuying, EmoteInfo aEmoteInfo, float aAmount, OnMessageReceivedArgs e)
         {
+            bool val = false;
+
             if (aAmount <= 0)
             {
                 return;
@@ -286,13 +365,33 @@ namespace EmotePrototypev1
 
             if (aBuying == true)
             {
-                m_Database.BuyEmote(aEmoteInfo, aAmount, e.ChatMessage.Username );
+                val = m_Database.BuyEmote(aEmoteInfo, aAmount, e.ChatMessage.Username );
             }
 
             else if (aBuying == false)
             {
-                m_Database.SellEmote(aEmoteInfo, aAmount, e.ChatMessage.Username);
+                val = m_Database.SellEmote(aEmoteInfo, aAmount, e.ChatMessage.Username);
             }
+            
+            if (val == true)
+            {
+                if (aBuying == true)
+                {
+                    m_ClientList[e.ChatMessage.Channel].SendMessage(e.ChatMessage.Channel, "@" + e.ChatMessage.Username + ", you have sucessfully bought " + aAmount + " of " + aEmoteInfo.GetName());
+                }
+
+                else if (aBuying == false)
+                {
+                    m_ClientList[e.ChatMessage.Channel].SendMessage(e.ChatMessage.Channel, "@" + e.ChatMessage.Username + ", you have sucessfully sold " + aAmount + " of " + aEmoteInfo.GetName());
+                }
+            }
+        }
+
+        private void HandleWalletEmoteAmount(string aEmoteName, OnMessageReceivedArgs e)
+        {
+            float amount = m_Database.GetAmountOfEmote(aEmoteName, e.ChatMessage.Username);
+
+            m_ClientList[m_BotChannel.ToLower()].SendWhisper(e.ChatMessage.Username, "You currently have " + amount + " of " + aEmoteName + ".");
         }
 
         private void HandleMoneyCommand(bool aWhisper, OnMessageReceivedArgs e)
@@ -314,7 +413,7 @@ namespace EmotePrototypev1
 
             else if (aWhisper == false)
             {
-                m_ClientList[e.ChatMessage.Channel].SendMessage(e.ChatMessage.Username, "@" + e.ChatMessage.Username + ", Your current balance is $" + moneyAmount);
+                m_ClientList[e.ChatMessage.Channel].SendMessage(e.ChatMessage.Channel, "@" + e.ChatMessage.Username + ", Your current balance is $" + moneyAmount);
                 return;
             }
         }
@@ -324,13 +423,13 @@ namespace EmotePrototypev1
             //Check if they are in the database or not and inserts them
             if (m_Database.InsertUserToDB_BoolCheck(e.ChatMessage.Username) == true)
             {
-                m_ClientList[e.ChatMessage.Channel].SendMessage(m_BotChannel, e.ChatMessage.Username + " is now registered!");
+                m_ClientList[e.ChatMessage.Channel].SendMessage(e.ChatMessage.Channel, e.ChatMessage.Username + " is now registered!");
                 return;
             }
 
             else
             {
-                m_ClientList[e.ChatMessage.Channel].SendMessage(m_BotChannel, e.ChatMessage.Username + " is already registered!");
+                m_ClientList[e.ChatMessage.Channel].SendMessage(e.ChatMessage.Channel, e.ChatMessage.Username + " is already registered!");
                 return;
             }
         }
@@ -362,7 +461,7 @@ namespace EmotePrototypev1
             if (aWallet[0].Item1 == "Error" && aWallet[0].Item2 == "Error")
             {
                 //Send message saying user has nothing
-                m_ClientList[m_BotChannel].SendWhisper(e.ChatMessage.Username, "You currently have nothing in your wallet!");
+                m_ClientList[m_BotChannel.ToLower()].SendWhisper(e.ChatMessage.Username, "You currently have nothing in your wallet!");
                 return;
             }
 
@@ -384,7 +483,7 @@ namespace EmotePrototypev1
                 //Then split it up into multiple parts
 
                 string whisperMessage = sb.ToString();
-                m_ClientList[m_BotChannel].SendWhisper(e.ChatMessage.Username, whisperMessage);
+                m_ClientList[m_BotChannel.ToLower()].SendWhisper(e.ChatMessage.Username, whisperMessage);
 
                 return;
             }
