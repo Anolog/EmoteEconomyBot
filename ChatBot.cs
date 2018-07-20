@@ -34,6 +34,7 @@ namespace EmotePrototypev1
 
         Database m_Database;
 
+        bool m_WhisperOnlyMode = false;
 
         public ChatBot(Database aDatabase)
         {
@@ -104,6 +105,9 @@ namespace EmotePrototypev1
 
         private void Client_OnWhisperRecieved(object sender, OnWhisperReceivedArgs e)
         {
+            string[] chatMessage = e.WhisperMessage.Message.Split(' ', '\t');
+
+            HandleMessagesGeneric(chatMessage, m_BotChannel, e.WhisperMessage.Username, true);
             return;
         }
 
@@ -116,199 +120,18 @@ namespace EmotePrototypev1
         {
             //m_ClientList[0].SendMessage("monkascountbot", m_ClientList[0].TwitchUsername);
 
-            //TODO:
-            //BIG / IMPORTANT
-            //Move all of the if statements into a function to group the same commands
-
             string[] chatMessage = e.ChatMessage.Message.Split(' ', '\t');
 
-            //If the client that the message recieved is the main bot
-            if (e.ChatMessage.Channel == m_BotChannel)
+            //TODO:
+            //Set whisper only mode to what it is in the database, test if here based on the specific channel
+            //Also need to add specific things mods and broadcasters only for enabling and disabling
+            if (m_WhisperOnlyMode == false && e.ChatMessage.IsModerator == false && e.ChatMessage.IsBroadcaster == false)
             {
-                if (e.ChatMessage.Message.StartsWith("!Enable"))
-                {
-                    //Check if they are in the DB or not
-                    Console.WriteLine("Checking if in DB");
-                    bool inDB = m_Database.CheckForUserInDB(e.ChatMessage.Username, "userinfo");
-
-                    //If they are in the db, grab their ID and put them into the chat db
-                    if (inDB == true)
-                    {
-                        Console.WriteLine(e.ChatMessage.Username + " is in the DB userinfo");
-                        //Check if in the other DB
-                        bool inOtherDB = m_Database.CheckForUserInDB(e.ChatMessage.Username, "chatinfo");
-
-                        //in both databases
-                        if (inOtherDB == true)
-                        {
-                            Console.WriteLine(e.ChatMessage.Username + " is in the DB chatinfo");
-                            Console.WriteLine(e.ChatMessage.Username + " is in both of the DB's");
-
-                            m_ClientList[e.ChatMessage.Channel].SendMessage(m_BotChannel, e.ChatMessage.Username + " is already active!");
-
-                            return;
-                        }
-
-                        //not in the chatinfo db, put them into it
-                        if (inOtherDB == false)
-                        {
-                            Console.WriteLine(e.ChatMessage.Username + " is not in the DB chatinfo");
-                            int id = m_Database.GetUserID(e.ChatMessage.Username);
-
-                            m_Database.InsertUserToChatDB(e.ChatMessage.Username, id);
-
-                            m_ClientList[e.ChatMessage.Channel].SendMessage(m_BotChannel, e.ChatMessage.Username + " is now active!");
-                            m_ClientList[e.ChatMessage.Username].SendMessage(e.ChatMessage.Username, "Emote Economy Bot is now active in this channel!");
-
-                        }
-                    }
-                    //TODO: EFFECT MARKET WEHEN BUYING AND SELLING
-
-                    //if they are not in the db, put them into both
-                    if (inDB == false)
-                    {
-                        Console.WriteLine(e.ChatMessage.Username + " is not in the DB userinfo");
-
-                        //Create user in one db
-                        m_Database.InsertUserToDB(e.ChatMessage.Username);
-
-                        //Grab the id of them
-                        int id = m_Database.GetUserID(e.ChatMessage.Username);
-
-                        //put user into other db
-                        m_Database.InsertUserToChatDB(e.ChatMessage.Username, id);
-
-                        m_ClientList[e.ChatMessage.Channel].SendMessage(m_BotChannel, e.ChatMessage.Username + " is now registered and enabled!");
-
-                    }
-
-                    //Add it to the current client list
-                    //Use the username that the message is recieved from and create a client with the username as well
-                    m_ClientList.Add(e.ChatMessage.Username, CreateClient(e.ChatMessage.Username));
-
-                    return;
-                }
-
-                if (e.ChatMessage.Message.StartsWith("!EconomyRegister"))
-                {
-                    RegisterCommand(e);
-                }
+                HandleMessagesGeneric(chatMessage, e.ChatMessage.Channel, e.ChatMessage.Username, false);
             }
 
-            //Every other channel
-            else
-            {
-                if (e.ChatMessage.Message.StartsWith("!EconomyRegister"))
-                {
-                    RegisterCommand(e);
-                }
+            HandleEmotes(chatMessage);
 
-                //CHAT MESSAGE FOR TRADING
-                // 0             1      2   3      4
-                // !EconomyTrade Emote1 for Emote2 amount
-                if (e.ChatMessage.Message.StartsWith("!EconomyTrade") && chatMessage.Length >= 5)
-                {
-                    if (chatMessage[2] != "for")
-                    {
-                        Console.Write(e.ChatMessage.Username + " tried to trade but messed up the wording on for");
-                        return;
-                    }
-
-                    bool parse = float.TryParse(chatMessage[4], out float result);
-                    
-                    //parse failed
-                    if (parse == false)
-                    {
-                        Console.WriteLine(e.ChatMessage.Username + " attempted to use a non float/int value for the amount to buy");
-                        return;
-                    }
-                    
-                    bool transaciton = m_Database.TradeEmote(e.ChatMessage.Username, chatMessage[1], chatMessage[3], result, m_EmoteInfo[chatMessage[1]].GetAverage());
-
-                    //Determine if fail or sucess
-                    if (transaciton == true)
-                    {
-                        //TODO:
-                        //Modify market -> Move this call and the buy call to be in the TradeEmote, or make a function to move it in there
-
-                        //Tell user it was accepted
-                        m_ClientList[e.ChatMessage.Channel].SendMessage(e.ChatMessage.Channel, e.ChatMessage.Username + ", your transaction was sucessful!");
-                    }
-
-                    return;
-                }
-
-                //TODO:
-                //SPLIT THE MESSAGE UP IF GREATER THAN CERTAIN AMOUNT
-                else if (e.ChatMessage.Message.StartsWith("!EconomyWallet"))
-                {
-                    //HandleUserWallet(m_Database.GetUserWallet(m_Database.GetUserID(e.ChatMessage.Username)), e);
-                    //m_ClientList[m_BotChannel].SendWhisper(e.ChatMessage.Username, "This command is currently disabled! It breaks the bot. LUL");
-                }
-
-                //Output to whisper
-                else if (e.ChatMessage.Message.StartsWith("!EconomyMoney"))
-                {
-                    HandleMoneyCommand(true, e);
-                }
-
-                //Output to all of chat
-                else if (e.ChatMessage.Message.StartsWith("!EconomyShowMoney"))
-                {
-                    HandleMoneyCommand(false, e);
-                }
-
-                //CHAT MESSAGE FOR BUYING/SELLING
-                // 0                  1      2 
-                // !EconomyBuy/Sell Emote Amount
-
-                //TODO:
-                //CLEAN THIS CODE LATER
-                else if (e.ChatMessage.Message.StartsWith("!EconomyBuy") && chatMessage.Length >= 2)
-                {
-
-                    bool parse = float.TryParse(chatMessage[2], out float result);
-
-                    //parse failed
-                    if (parse == false)
-                    {
-                        Console.WriteLine(e.ChatMessage.Username + " attempted to use a non float/int value for the amount to buy");
-                        return;
-                    }
-
-                    //TODO:
-                    //PUT A CHECK FOR EMOTE LIST IN HERE
-
-                    HandleBuySellCommand(true, m_EmoteInfo[chatMessage[1]], result , e);
-                }
-
-                else if (e.ChatMessage.Message.StartsWith("!EconomySell") && chatMessage.Length >= 2)
-                {
-                    bool parse = float.TryParse(chatMessage[2], out float result);
-
-                    //parse failed
-                    if (parse == false)
-                    {
-                        Console.WriteLine(e.ChatMessage.Username + " attempted to use a non float/int value for the amount to buy");
-                        return;
-                    }
-
-                    HandleBuySellCommand(false, m_EmoteInfo[chatMessage[1]], result, e);
-                }
-                //      0             1
-                //!EconomyEmoteValue Kappa
-                else if (e.ChatMessage.Message.StartsWith("!EconomyEmoteValue") && chatMessage.Length >= 1)
-                {
-                    HandleEmoteValueCommand(chatMessage[1], e);
-                }
-
-                else if (e.ChatMessage.Message.StartsWith("!EconomyMyEmoteAmount"))
-                {
-                    HandleWalletEmoteAmount(chatMessage[1], e);
-                }
-
-                HandleEmotes(chatMessage);
-            }
 
             return;
         }
@@ -354,6 +177,40 @@ namespace EmotePrototypev1
             return;
         }
 
+        private void HandleEmoteValueCommand(string aEmote, string aUser, string aChannelName, bool aWhisper)
+        {
+            bool emoteExists = false;
+            float val = 0;
+
+            for (int i = 0; i < m_EmoteNamesInDB.Count; i++)
+            {
+                if (m_EmoteNamesInDB[i] == aEmote)
+                {
+                    emoteExists = true;
+                    break;
+                }
+            }
+
+            if (emoteExists == true)
+            {
+                val = m_Database.GetEmoteValue(aEmote);
+
+                if (aWhisper == false)
+                {
+                    //m_ClientList[aChannelName].SendMessage(aChannelName, "The value for " + aEmote + " is: " + val);
+                    SendMessageToChatGeneric("The value for " + aEmote + " is: " + val, aChannelName);
+                }
+                //m_ClientList[m_BotChannel.ToLower()].SendWhisper(e.ChatMessage.Username, "The value for " + aEmote + " is: " + val);
+
+                else if (aWhisper == true)
+                {
+                    SendWhisperGeneric("The value for " + aEmote + " is: " + val, aUser);
+                }
+            }
+
+            return;
+        }
+
         private void HandleBuySellCommand(bool aBuying, EmoteInfo aEmoteInfo, float aAmount, OnMessageReceivedArgs e)
         {
             bool val = false;
@@ -365,14 +222,14 @@ namespace EmotePrototypev1
 
             if (aBuying == true)
             {
-                val = m_Database.BuyEmote(aEmoteInfo, aAmount, e.ChatMessage.Username );
+                val = m_Database.BuyEmote(aEmoteInfo, aAmount, e.ChatMessage.Username);
             }
 
             else if (aBuying == false)
             {
                 val = m_Database.SellEmote(aEmoteInfo, aAmount, e.ChatMessage.Username);
             }
-            
+
             if (val == true)
             {
                 if (aBuying == true)
@@ -387,11 +244,70 @@ namespace EmotePrototypev1
             }
         }
 
+        private void HandleBuySellCommand(bool aBuying, EmoteInfo aEmoteInfo, float aAmount, string aUser, string aChannelName, bool aWhisper)
+        {
+            bool val = false;
+
+            if (aAmount <= 0)
+            {
+                return;
+            }
+
+            if (aBuying == true)
+            {
+                val = m_Database.BuyEmote(aEmoteInfo, aAmount, aUser);
+            }
+
+            else if (aBuying == false)
+            {
+                val = m_Database.SellEmote(aEmoteInfo, aAmount, aUser);
+            }
+
+            if (val == true)
+            {
+                if (aBuying == true)
+                {
+                    //m_ClientList[aChannelName].SendMessage(aChannelName, "@" + aUser + ", you have sucessfully bought " + aAmount + " of " + aEmoteInfo.GetName());
+                    if (aWhisper == false)
+                    {
+                        SendMessageToChatGeneric("@" + aUser + ", you have sucessfully bought " + aAmount + " of " + aEmoteInfo.GetName(), aChannelName);
+                    }
+
+                    else if (aWhisper == true)
+                    {
+                        SendWhisperGeneric("You have sucessfully bought " + aAmount + " of " + aEmoteInfo.GetName(), aUser);
+                    }
+
+                }
+
+                else if (aBuying == false)
+                {
+                    //m_ClientList[aChannelName].SendMessage(aChannelName, "@" + aUser + ", you have sucessfully sold " + aAmount + " of " + aEmoteInfo.GetName());
+                    if (aWhisper == false)
+                    {
+                        SendMessageToChatGeneric("@" + aUser + ", you have sucessfully sold " + aAmount + " of " + aEmoteInfo.GetName(), aChannelName);
+                    }
+
+                    else if (aWhisper == true)
+                    {
+                        SendWhisperGeneric("You have sucessfully sold " + aAmount + " of " + aEmoteInfo.GetName(), aUser);
+                    }
+                }
+            }
+        }
+
         private void HandleWalletEmoteAmount(string aEmoteName, OnMessageReceivedArgs e)
         {
             float amount = m_Database.GetAmountOfEmote(aEmoteName, e.ChatMessage.Username);
 
             m_ClientList[m_BotChannel.ToLower()].SendWhisper(e.ChatMessage.Username, "You currently have " + amount + " of " + aEmoteName + ".");
+        }
+
+        private void HandleWalletEmoteAmount(string aEmoteName, string aUser)
+        {
+            float amount = m_Database.GetAmountOfEmote(aEmoteName, aUser);
+
+            m_ClientList[m_BotChannel.ToLower()].SendWhisper(aUser, "You currently have " + amount + " of " + aEmoteName + ".");
         }
 
         private void HandleMoneyCommand(bool aWhisper, OnMessageReceivedArgs e)
@@ -418,6 +334,30 @@ namespace EmotePrototypev1
             }
         }
 
+        private void HandleMoneyCommand(bool aWhisper, string aUser, string aChannelName)
+        {
+            float moneyAmount = m_Database.GetMoney(aUser);
+
+            //Debug
+            if (moneyAmount == -1)
+            {
+                Console.WriteLine("Error: User tried to ask how much money they have but they aren't in the database");
+                return;
+            }
+
+            if (aWhisper == true)
+            {
+                m_ClientList[m_BotChannel.ToLower()].SendWhisper(aUser, "Your current balance is $" + moneyAmount);
+                return;
+            }
+
+            else if (aWhisper == false)
+            {
+                m_ClientList[aChannelName].SendMessage(aChannelName, "@" + aUser + ", Your current balance is $" + moneyAmount);
+                return;
+            }
+        }
+
         private void RegisterCommand(OnMessageReceivedArgs e)
         {
             //Check if they are in the database or not and inserts them
@@ -430,6 +370,42 @@ namespace EmotePrototypev1
             else
             {
                 m_ClientList[e.ChatMessage.Channel].SendMessage(e.ChatMessage.Channel, e.ChatMessage.Username + " is already registered!");
+                return;
+            }
+        }
+
+        private void RegisterCommand(string aChannelName, string aUser, bool aWhisper)
+        {
+            //Check if they are in the database or not and inserts them
+            if (m_Database.InsertUserToDB_BoolCheck(aUser) == true)
+            {
+                //m_ClientList[aChannelName].SendMessage(aChannelName, aUser + " is now registered!");
+                if (aWhisper == false)
+                {
+                    SendMessageToChatGeneric(aUser + "is now registered!", aChannelName);
+                }
+
+                else if (aWhisper == true)
+                {
+                    SendWhisperGeneric("You are now registered!", aUser);
+                }
+
+                return;
+            }
+
+            else
+            {
+                //m_ClientList[aChannelName].SendMessage(aChannelName, aUser + " is already registered!");
+                if (aWhisper == false)
+                {
+                    SendMessageToChatGeneric(aUser + " is already registered!", aChannelName);
+                }
+
+                else if (aWhisper == true)
+                {
+                    SendWhisperGeneric("You are already registered!", aUser);
+                }
+
                 return;
             }
         }
@@ -487,6 +463,233 @@ namespace EmotePrototypev1
 
                 return;
             }
+        }
+
+        private void SendMessageToChatGeneric(string aChatMessage, string aChannelName)
+        {
+            m_ClientList[aChannelName].SendMessage(aChannelName, aChatMessage);
+        }
+
+        private void SendWhisperGeneric(string aChatMessage, string aUser)
+        {
+            m_ClientList[m_BotChannel].SendWhisper(aUser, aChatMessage);
+        }
+
+        //TODO: 
+        //Change the message to send and send it
+        //Send to whatever based on the whisper
+        //Make every call use the generic chat message call
+        private void HandleMessagesGeneric(string[] aChatMessage, string aChannelName, string aUser, bool aWhisper)
+        {
+            //TODO:
+            //Clean up duplicates
+
+            //If the client that the message recieved is the main bot
+            //This is not needed for the whisper
+            if (aChannelName == m_BotChannel)
+            {
+                if (aChatMessage[0] == ("!Enable"))
+                {
+                    //Check if they are in the DB or not
+                    Console.WriteLine("Checking if in DB");
+                    bool inDB = m_Database.CheckForUserInDB(aUser, "userinfo");
+
+                    //If they are in the db, grab their ID and put them into the chat db
+                    if (inDB == true)
+                    {
+                        Console.WriteLine(aUser + " is in the DB userinfo");
+                        //Check if in the other DB
+                        bool inOtherDB = m_Database.CheckForUserInDB(aUser, "chatinfo");
+
+                        //in both databases
+                        if (inOtherDB == true)
+                        {
+                            Console.WriteLine(aUser + " is in the DB chatinfo");
+                            Console.WriteLine(aUser + " is in both of the DB's");
+
+                            //m_ClientList[aChannelName].SendMessage(m_BotChannel, aUser + " is already active!");
+                            SendMessageToChatGeneric(aUser + " is already active!", aChannelName);
+
+                            return;
+                        }
+
+                        //not in the chatinfo db, put them into it
+                        if (inOtherDB == false)
+                        {
+                            Console.WriteLine(aUser + " is not in the DB chatinfo");
+                            int id = m_Database.GetUserID(aUser);
+
+                            m_Database.InsertUserToChatDB(aUser, id);
+
+                            //m_ClientList[aChannelName].SendMessage(m_BotChannel, aUser + " is now active!");
+                            //m_ClientList[aUser].SendMessage(aUser, "Emote Economy Bot is now active in this channel!");
+                            SendMessageToChatGeneric(aUser + " is now active!", m_BotChannel);
+                            SendMessageToChatGeneric("Emote Economy Bot is now active in this channel!", aUser);
+                        }
+                    }
+
+                    //if they are not in the db, put them into both
+                    if (inDB == false)
+                    {
+                        Console.WriteLine(aUser + " is not in the DB userinfo");
+
+                        //Create user in one db
+                        m_Database.InsertUserToDB(aUser);
+
+                        //Grab the id of them
+                        int id = m_Database.GetUserID(aUser);
+
+                        //put user into other db
+                        m_Database.InsertUserToChatDB(aUser, id);
+
+                        //m_ClientList[aChannelName].SendMessage(m_BotChannel, aUser + " is now registered and enabled!");
+                        SendMessageToChatGeneric(aUser + " is not registered and enabled!", m_BotChannel);
+
+                    }
+
+                    //Add it to the current client list
+                    //Use the username that the message is recieved from and create a client with the username as well
+                    m_ClientList.Add(aUser, CreateClient(aUser));
+
+                    return;
+                }
+
+                if (aChatMessage[0] == "!EconomyRegister")
+                {
+                    RegisterCommand(aChannelName, aUser, false);
+                }
+            }
+
+            //Every other channel
+            //will have if statement for if it is a whisper or not
+            else
+            {
+                if (aChatMessage[0] == "!EconomyRegister")
+                {
+                    RegisterCommand(aChannelName, aUser, aWhisper);
+                }
+
+                //CHAT MESSAGE FOR TRADING
+                // 0             1      2   3      4
+                // !EconomyTrade Emote1 for Emote2 amount
+                if (aChatMessage[0] == "!EconomyTrade" && aChatMessage.Length >= 5)
+                {
+                    if (aChatMessage[2] != "for")
+                    {
+                        Console.Write(aUser + " tried to trade but messed up the wording on for");
+                        return;
+                    }
+
+                    bool parse = float.TryParse(aChatMessage[4], out float result);
+
+                    //parse failed
+                    if (parse == false)
+                    {
+                        Console.WriteLine(aUser + " attempted to use a non float/int value for the amount to buy");
+                        return;
+                    }
+
+                    bool transaciton = m_Database.TradeEmote(aUser, aChatMessage[1], aChatMessage[3], result, m_EmoteInfo[aChatMessage[1]].GetAverage());
+
+                    //Determine if fail or sucess
+                    if (transaciton == true)
+                    {
+                        //TODO:
+                        //Modify market -> Move this call and the buy call to be in the TradeEmote, or make a function to move it in there
+
+                        //Tell user it was accepted
+                        //m_ClientList[aChannelName].SendMessage(aChannelName, aUser + ", your transaction was sucessful!");
+
+                        if (aWhisper == false)
+                        {
+                            SendMessageToChatGeneric(aUser + " , your transaction was sucessful!", aChannelName);
+                        }
+
+                        else if (aWhisper == true)
+                        {
+                            SendWhisperGeneric("Your transaction was sucessful!", aUser);
+                        }
+                    }
+
+                    return;
+                }
+
+                //TODO:
+                //SPLIT THE MESSAGE UP IF GREATER THAN CERTAIN AMOUNT
+                else if (aChatMessage[0] == "!EconomyWallet")
+                {
+                    //HandleUserWallet(m_Database.GetUserWallet(m_Database.GetUserID(e.ChatMessage.Username)), e);
+                    //m_ClientList[m_BotChannel].SendWhisper(e.ChatMessage.Username, "This command is currently disabled! It breaks the bot. LUL");
+                }
+
+                //Output to whisper
+                else if (aChatMessage[0] == "!EconomyMoney")
+                {
+                    HandleMoneyCommand(true, aUser, aChannelName);
+                }
+
+                //Output to all of chat, Special case, this also needs to detect for if the chat is on whisper only mode
+                else if (aChatMessage[0] == "!EconomyShowMoney" && m_WhisperOnlyMode == false)
+                {
+                    HandleMoneyCommand(false, aUser, aChannelName);
+                }
+
+                //CHAT MESSAGE FOR BUYING/SELLING
+                // 0                  1      2 
+                // !EconomyBuy/Sell Emote Amount
+
+                //TODO:
+                //CLEAN THIS CODE LATER
+                else if (aChatMessage[0] == "!EconomyBuy" && aChatMessage.Length >= 2)
+                {
+
+                    bool parse = float.TryParse(aChatMessage[2], out float result);
+
+                    //parse failed
+                    if (parse == false)
+                    {
+                        Console.WriteLine(aUser + " attempted to use a non float/int value for the amount to buy");
+                        return;
+                    }
+
+                    //TODO:
+                    //PUT A CHECK FOR EMOTE LIST IN HERE
+
+                    //Send in awhisper and the funciton does the check there
+                    HandleBuySellCommand(true, m_EmoteInfo[aChatMessage[1]], result, aUser, aChannelName, aWhisper);
+                }
+
+                else if (aChatMessage[0] == "!EconomySell" && aChatMessage.Length >= 2)
+                {
+                    bool parse = float.TryParse(aChatMessage[2], out float result);
+
+                    //parse failed
+                    if (parse == false)
+                    {
+                        Console.WriteLine(aUser + " attempted to use a non float/int value for the amount to buy");
+                        return;
+                    }
+
+                    //Whisper is handled inside the function
+                    HandleBuySellCommand(false, m_EmoteInfo[aChatMessage[1]], result, aUser, aChannelName, aWhisper);
+                }
+
+                //      0             1
+                //!EconomyEmoteValue Kappa
+                else if (aChatMessage[0] == "!EconomyEmoteValue" && aChatMessage.Length >= 1)
+                {
+                    //Whisper is handled inside the function
+                    HandleEmoteValueCommand(aChatMessage[1], aUser, aChannelName, aWhisper);
+                }
+
+                //Is always a send whisper
+                else if (aChatMessage[0] == "!EconomyMyEmoteAmount")
+                {
+                    HandleWalletEmoteAmount(aChatMessage[1], aUser);
+                }
+
+            }
+
         }
     }
 }
