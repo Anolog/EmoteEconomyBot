@@ -107,7 +107,7 @@ namespace EmotePrototypev1
         {
             string[] chatMessage = e.WhisperMessage.Message.Split(' ', '\t');
 
-            HandleMessagesGeneric(chatMessage, m_BotChannel, e.WhisperMessage.Username, true);
+            HandleMessagesGeneric(chatMessage, m_BotChannel, e.WhisperMessage.Username, true, false);
             return;
         }
 
@@ -122,12 +122,18 @@ namespace EmotePrototypev1
 
             string[] chatMessage = e.ChatMessage.Message.Split(' ', '\t');
 
-            //TODO:
             //Set whisper only mode to what it is in the database, test if here based on the specific channel
-            //Also need to add specific things mods and broadcasters only for enabling and disabling
+
+            m_WhisperOnlyMode = m_Database.GetWhisperOnly(e.ChatMessage.Channel);
+
             if (m_WhisperOnlyMode == false && e.ChatMessage.IsModerator == false && e.ChatMessage.IsBroadcaster == false)
             {
-                HandleMessagesGeneric(chatMessage, e.ChatMessage.Channel, e.ChatMessage.Username, false);
+                HandleMessagesGeneric(chatMessage, e.ChatMessage.Channel, e.ChatMessage.Username, false, false);
+            }
+
+            else if (e.ChatMessage.IsModerator == true || e.ChatMessage.IsBroadcaster == true)
+            {
+                HandleMessagesGeneric(chatMessage, e.ChatMessage.Channel, e.ChatMessage.Username, false, true);
             }
 
             HandleEmotes(chatMessage);
@@ -475,11 +481,16 @@ namespace EmotePrototypev1
             m_ClientList[m_BotChannel].SendWhisper(aUser, aChatMessage);
         }
 
+        private void SetWhisperMode(string aUsername, bool aWhisper)
+        {
+            m_Database.UpdateWhisperOnly(aUsername, aWhisper);
+        }
+
         //TODO: 
         //Change the message to send and send it
         //Send to whatever based on the whisper
         //Make every call use the generic chat message call
-        private void HandleMessagesGeneric(string[] aChatMessage, string aChannelName, string aUser, bool aWhisper)
+        private void HandleMessagesGeneric(string[] aChatMessage, string aChannelName, string aUser, bool aWhisper, bool aMod)
         {
             //TODO:
             //Clean up duplicates
@@ -686,6 +697,22 @@ namespace EmotePrototypev1
                 else if (aChatMessage[0] == "!EconomyMyEmoteAmount")
                 {
                     HandleWalletEmoteAmount(aChatMessage[1], aUser);
+                }
+
+                //Change whisper only and check if mod or broadcaster
+                //    0             1
+                //!EconomyWhisper On/Off
+                else if (aChatMessage[0] == "!EconomyWhisper" && aChatMessage.Length >= 1 && aMod == true && aWhisper == false)
+                {
+                    if (aChatMessage[1].ToLower() == "on" && m_WhisperOnlyMode == false)
+                    {
+                        m_Database.UpdateWhisperOnly(aChannelName, true);
+                    }
+
+                    else if (aChatMessage[1].ToLower() == "off" && m_WhisperOnlyMode == true)
+                    {
+                        m_Database.UpdateWhisperOnly(aChannelName, false);
+                    }
                 }
 
             }

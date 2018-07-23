@@ -559,7 +559,7 @@ namespace EmotePrototypev1
 
         public void InsertUserToChatDB(string aUsername, int aID)
         {
-            string query = "INSERT INTO chatinfo VALUES ('" + aUsername + "', " + aID + ")";
+            string query = "INSERT INTO chatinfo VALUES ('" + aUsername + "', " + aID + ", FALSE" + ")";
 
             if (m_Connection.Ping() == false)
             {
@@ -577,6 +577,41 @@ namespace EmotePrototypev1
 
             this.CloseConnection();
 
+        }
+
+        public void UpdateWhisperOnly(string aUsername, bool aWhisper)
+        {
+            string query = "UPDATE chatinfo SET WhisperOnly = " + aWhisper + " WHERE Username = '" + aUsername + "'";
+
+            if (m_Connection.Ping() == false)
+            {
+                m_Connection.Open();
+            }
+
+            MySqlCommand cmd = new MySqlCommand(query, m_Connection);
+
+            cmd.ExecuteNonQuery();
+
+            this.CloseConnection();
+        }
+
+        public bool GetWhisperOnly(string aUsername)
+        {
+            bool whisp;
+
+            string query = "SELECT WhisperOnly FROM chatinfo WHERE Username = '" + aUsername + "'";
+
+            if (m_Connection.Ping() == false)
+            {
+                m_Connection.Open();
+            }
+
+            MySqlCommand cmd = new MySqlCommand(query, m_Connection);
+
+            whisp = Convert.ToBoolean(cmd.ExecuteScalar());
+
+            this.CloseConnection();
+            return whisp;
         }
 
         public bool CheckForUserInDB(string aUsername, string aTableName)
